@@ -5,7 +5,7 @@ import 'package:parkquest_parkir_gamifikasi/constants.dart';
 import 'package:parkquest_parkir_gamifikasi/Controllers/park_search_controller.dart';
 import 'package:get/get.dart';
 import 'package:parkquest_parkir_gamifikasi/models/park_search/park_data.dart';
-import 'package:parkquest_parkir_gamifikasi/models/park_search/park_recommendation.dart';
+// import 'package:parkquest_parkir_gamifikasi/models/park_search/park_recommendation.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class DetailParkir extends StatefulWidget {
@@ -19,6 +19,51 @@ class _DetailParkirState extends State<DetailParkir> {
   // Park Data
   final ParkSearchController _parksearchcontroller =
       Get.put(ParkSearchController());
+
+  // Variables for lazy loading
+  final ScrollController _scrollController = ScrollController();
+  int _displayedItemCount = 5;
+  bool _isLoadingMore = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_scrollListener);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  // Scroll listener for lazy loading
+  void _scrollListener() {
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 200 &&
+        !_isLoadingMore &&
+        _displayedItemCount <
+            _parksearchcontroller.datasParkRecommendation.value.length) {
+      _loadMoreItems();
+    }
+  }
+
+  // Function to load more items
+  void _loadMoreItems() {
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    Future.delayed(const Duration(milliseconds: 500), () {
+      setState(() {
+        _displayedItemCount = _displayedItemCount + 5 >
+                _parksearchcontroller.datasParkRecommendation.value.length
+            ? _parksearchcontroller.datasParkRecommendation.value.length
+            : _displayedItemCount + 5;
+        _isLoadingMore = false;
+      });
+    });
+  }
 
   // Title Text
   Widget _buildTitleText(String text) {
@@ -200,6 +245,10 @@ class _DetailParkirState extends State<DetailParkir> {
                   _parksearchcontroller.parkRecommendation(
                     parkAreaId: parkAreaData.id,
                   );
+                  // Reset displayed items when switching to recommendations tab
+                  setState(() {
+                    _displayedItemCount = 5;
+                  });
                 }
               },
               indicatorColor: Color(0xFFFEC827),
@@ -334,52 +383,65 @@ class _DetailParkirState extends State<DetailParkir> {
                     ),
                   ),
                   // Tab Rekomendasi
-                  SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      child: Obx(() {
-                        if (_parksearchcontroller.isLoading.value) {
-                          return Center(
-                            child: CircularProgressIndicator(
-                              color: Color(0xFFFEC827),
-                            ),
-                          );
-                        }
-                        if (_parksearchcontroller
-                            .datasParkRecommendation.value.isEmpty) {
-                          return Center(child: Text('Data tidak ditemukan'));
-                        }
+                  NotificationListener<ScrollNotification>(
+                    onNotification: (scrollNotification) {
+                      // Let the scroll controller handle the notification
+                      return false;
+                    },
+                    child: SingleChildScrollView(
+                      controller: _scrollController,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        child: Obx(() {
+                          if (_parksearchcontroller.isLoading.value) {
+                            return Center(
+                              child: CircularProgressIndicator(
+                                color: Color(0xFFFEC827),
+                              ),
+                            );
+                          }
+                          if (_parksearchcontroller
+                              .datasParkRecommendation.value.isEmpty) {
+                            return Center(child: Text('Data tidak ditemukan'));
+                          }
 
-                        return ListView.builder(
-                            shrinkWrap: true,
-                            physics: NeverScrollableScrollPhysics(),
-                            itemCount: _parksearchcontroller
-                                .datasParkRecommendation.value.length,
-                            itemBuilder: (context, index) {
-                              final ParkRecommendationModel data =
-                                  _parksearchcontroller
-                                      .datasParkRecommendation.value[index];
+                          // Take only the displayed items
+                          final displayedItems = _parksearchcontroller
+                              .datasParkRecommendation.value
+                              .take(_displayedItemCount)
+                              .toList();
 
-                              return ListView(
-                                shrinkWrap: true,
-                                physics: NeverScrollableScrollPhysics(),
-                                scrollDirection: Axis.vertical,
-                                children: [
-                                  _buildCard(
-                                    data.id,
-                                    data.user.avatar == null
-                                        ? Icon(Icons.person)
-                                        : Image.network(
-                                            storageUrl + data.user.avatar,
-                                          ),
-                                    data.user.name,
-                                    timeago.format(data.createdAt),
-                                    data.description,
+                          return Column(
+                            children: [
+                              // Display the items
+                              ...displayedItems.map((data) {
+                                return _buildCard(
+                                  data.id,
+                                  data.user.avatar == null
+                                      ? Icon(Icons.person)
+                                      : Image.network(
+                                          storageUrl + data.user.avatar,
+                                        ),
+                                  data.user.name,
+                                  timeago.format(data.createdAt),
+                                  data.description,
+                                );
+                              }),
+                              // Loading indicator at the bottom
+                              if (_isLoadingMore)
+                                Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      color: Color(0xFFFEC827),
+                                    ),
                                   ),
-                                ],
-                              );
-                            });
-                      }),
+                                ),
+                            ],
+                          );
+                        }),
+                      ),
                     ),
                   ),
                 ],
