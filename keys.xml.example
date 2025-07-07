@@ -1,0 +1,5 @@
+file location: android/app/src/main/res/values/keys.xml
+
+<resources>
+<string name="google_maps_key">YOUR_KEY</string>
+</resources>
