@@ -22,7 +22,7 @@ class _DetailParkirState extends State<DetailParkir> {
 
   // Variables for lazy loading
   final ScrollController _scrollController = ScrollController();
-  int _displayedItemCount = 5;
+  int _displayedItemCount = 6;
   bool _isLoadingMore = false;
 
   @override
@@ -247,7 +247,7 @@ class _DetailParkirState extends State<DetailParkir> {
                   );
                   // Reset displayed items when switching to recommendations tab
                   setState(() {
-                    _displayedItemCount = 5;
+                    _displayedItemCount = 6;
                   });
                 }
               },
@@ -383,65 +383,99 @@ class _DetailParkirState extends State<DetailParkir> {
                     ),
                   ),
                   // Tab Rekomendasi
-                  NotificationListener<ScrollNotification>(
-                    onNotification: (scrollNotification) {
-                      // Let the scroll controller handle the notification
-                      return false;
-                    },
-                    child: SingleChildScrollView(
-                      controller: _scrollController,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        child: Obx(() {
-                          if (_parksearchcontroller.isLoading.value) {
-                            return Center(
-                              child: CircularProgressIndicator(
-                                color: Color(0xFFFEC827),
-                              ),
-                            );
-                          }
-                          if (_parksearchcontroller
-                              .datasParkRecommendation.value.isEmpty) {
-                            return Center(child: Text('Data tidak ditemukan'));
-                          }
+                  Expanded(
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: (scrollNotification) {
+                        if (scrollNotification is ScrollEndNotification &&
+                            _scrollController.position.pixels ==
+                                _scrollController.position.maxScrollExtent &&
+                            !_isLoadingMore &&
+                            _displayedItemCount <
+                                _parksearchcontroller
+                                    .datasParkRecommendation.value.length) {
+                          _loadMoreItems();
+                        }
+                        return false;
+                      },
+                      child: Obx(() {
+                        if (_parksearchcontroller.isLoading.value) {
+                          return Center(
+                            child: CircularProgressIndicator(
+                              color: Color(0xFFFEC827),
+                            ),
+                          );
+                        }
+                        if (_parksearchcontroller
+                            .datasParkRecommendation.value.isEmpty) {
+                          return Center(child: Text('Data tidak ditemukan'));
+                        }
 
-                          // Take only the displayed items
-                          final displayedItems = _parksearchcontroller
-                              .datasParkRecommendation.value
-                              .take(_displayedItemCount)
-                              .toList();
-
-                          return Column(
-                            children: [
-                              // Display the items
-                              ...displayedItems.map((data) {
-                                return _buildCard(
-                                  data.id,
-                                  data.user.avatar == null
-                                      ? Icon(Icons.person)
-                                      : Image.network(
-                                          storageUrl + data.user.avatar,
+                        return Column(
+                          children: [
+                            Expanded(
+                              child: ListView.builder(
+                                physics: AlwaysScrollableScrollPhysics(),
+                                controller: _scrollController,
+                                itemCount: _displayedItemCount +
+                                    (_isLoadingMore ? 1 : 0),
+                                itemBuilder: (context, index) {
+                                  if (index >=
+                                      _parksearchcontroller
+                                          .datasParkRecommendation
+                                          .value
+                                          .length) {
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 16.0),
+                                      child: Center(
+                                        child: SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.0,
+                                            color: Color(0xFFFEC827),
+                                          ),
                                         ),
-                                  data.user.name,
-                                  timeago.format(data.createdAt),
-                                  data.description,
-                                );
-                              }),
-                              // Loading indicator at the bottom
-                              if (_isLoadingMore)
-                                Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 16),
-                                  child: Center(
+                                      ),
+                                    );
+                                  }
+
+                                  final data = _parksearchcontroller
+                                      .datasParkRecommendation.value[index];
+                                  return _buildCard(
+                                    data.id,
+                                    data.user.avatar == null
+                                        ? Icon(Icons.person)
+                                        : Image.network(
+                                            storageUrl + data.user.avatar),
+                                    data.user.name,
+                                    timeago.format(data.createdAt),
+                                    data.description,
+                                  );
+                                },
+                              ),
+                            ),
+                            if (_isLoadingMore &&
+                                _displayedItemCount <
+                                    _parksearchcontroller
+                                        .datasParkRecommendation.value.length)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16.0),
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 24,
+                                    height: 24,
                                     child: CircularProgressIndicator(
+                                      strokeWidth: 2.0,
                                       color: Color(0xFFFEC827),
                                     ),
                                   ),
                                 ),
-                            ],
-                          );
-                        }),
-                      ),
+                              ),
+                          ],
+                        );
+                      }),
                     ),
                   ),
                 ],
